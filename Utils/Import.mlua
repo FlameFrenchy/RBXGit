@@ -14,6 +14,26 @@ local function getScriptType(filename)
 	end
 end
 
+local function getLatestReleaseVersion(user, repo)
+	local apiUrl = "https://api.github.com/repos/"..user.."/"..repo.."/releases/latest"
+
+	-- Fetch the latest release info
+	local success, result = pcall(function()
+		return HTTP:JSONDecode(HTTP:GetAsync(apiUrl))
+	end)
+
+	if not success then
+		error("[PACKAGE] Failed to get the latest release for repo "..user.."/"..repo)
+	end
+
+	if result and result.name then
+		-- Return the name field (which can contain the version number)
+		return result.name
+	else
+		error("[PACKAGE] No releases found for repo "..user.."/"..repo)
+	end
+end
+
 -- Recursive fetcher
 function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:boolean)
 	local p = path
@@ -27,7 +47,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 	wasConfirmed = c or false
 	-- Create the root folder only if isParent is true (this means we are at the top level of the repo)
 	if isParent and not parent.Parent then
-		parent.Name = "@"..user.."."..repo
+		parent.Name = "@"..user.."."..repo.. " ("..getLatestReleaseVersion(user, repo)..")"
 		parent.Parent = game:GetService("ReplicatedStorage")
 	end
 	
