@@ -82,7 +82,22 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 					warn("[PACKAGE] Failed to get file:", item.download_url)
 				end
 			else
-				warn("[PACKAGE] Skipped non-script file:", item.name)
+				if item.name == "Compatible.RBXGit" then
+					continue
+				end
+				
+				local fileContentSuccess, data = pcall(function()
+					return HTTP:GetAsync(item.download_url)
+				end)
+				
+				if fileContentSuccess then
+					local val = Instance.new("IntValue")
+					val.Value = data
+					val.Name = item.name
+					val.Parent = parent
+				else
+					warn("[PACKAGE] Failed to import (Non-Script) File content.")
+				end
 			end
 		elseif item.type == "dir" then
 			-- Create subfolder for directories
