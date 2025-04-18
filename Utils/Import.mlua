@@ -4,11 +4,11 @@ local Git = {}
 -- Helper to detect script type from filename
 local function getScriptType(filename)
 	if filename:match("%.mlua$") then -- CUSTOM MADE FOR "MODULE LUA" for Module Scripts
-		return "ModuleScript"
+		return "Module Script"
 	elseif filename:match("%.lua$") then 
 		return "Script"
 	elseif filename:match("%.llua$") then -- CUSTOM MADE FOR "LOCAL LUA" for Local Scripts
-		return "LocalScript"
+		return "Local Script"
 	else
 		return nil
 	end
