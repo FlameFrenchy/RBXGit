@@ -15,14 +15,16 @@ local function getScriptType(filename)
 end
 
 -- Recursive fetcher
-function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
+function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:boolean)
 	local p = path
 	local pa = parent
 	local i = isParent
+	local c = wasConfirmed
 	path = p or "/"
 	parent = pa or game:GetService("ReplicatedStorage"):FindFirstChild("@"..user.."."..repo) or Instance.new("Folder")
 	isParent = i or true
-
+	
+	wasConfirmed = c or false
 	-- Create the root folder only if isParent is true (this means we are at the top level of the repo)
 	if isParent and not parent.Parent then
 		parent.Name = "@"..user.."."..repo
@@ -45,18 +47,21 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 	if not success then
 		error("[PACKAGE] Failed to get repo content at "..apiUrl)
 	end
-	local Compatible = false
+	--print("Confirmed: ", wasConfirmed)
+	local Compatible = wasConfirmed
 	
-	for _, item in ipairs(result) do
-		if item.type == "file" and item.name == "Compatible.RBXGit" then
-			-- Handle COMPATIBLE.RBXGit found
-			print("[PACKAGE] Repo is compatible with RBXGIT.")
-			Compatible = true
-			
+	if Compatible == false then
+		for _, item in ipairs(result) do
+			if item.type == "file" and item.name == "Compatible.RBXGit" then
+				-- Handle COMPATIBLE.RBXGit found
+				print("[PACKAGE] Repo is compatible with RBXGIT.")
+				Compatible = true
+
+			end
 		end
 	end
-	
-	if not Compatible then
+	--print(Compatible)
+	if Compatible == false then
 		return warn("[PACKAGE] Repo is not compatible with RBXGIT. Cancelled download.")
 	end
 
@@ -91,7 +96,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 				end)
 				
 				if fileContentSuccess then
-					local val = Instance.new("IntValue")
+					local val = Instance.new("StringValue")
 					val.Value = data
 					val.Name = item.name
 					val.Parent = parent
@@ -106,8 +111,11 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 			newFolder.Parent = parent
 
 			-- Recurse into the subdirectory
-			Git.GET_REPO(user, repo, item.path, newFolder, false)
+			Git.GET_REPO(user, repo, item.path, newFolder, false, Compatible)
 		end
+	end
+	if isParent then
+		print("[✔ PACKAGE] Import Succesfull")
 	end
 end
 
