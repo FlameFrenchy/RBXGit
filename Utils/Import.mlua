@@ -28,6 +28,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 		parent.Name = "@"..user.."."..repo
 		parent.Parent = game:GetService("ReplicatedStorage")
 	end
+	
 
 	-- Set subfolder names
 	if not isParent then
@@ -44,6 +45,21 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 	if not success then
 		error("[PACKAGE] Failed to get repo content at "..apiUrl)
 	end
+	local Compatible = false
+	
+	for _, item in ipairs(result) do
+		if item.type == "file" and item.name == "COMPATIBLE.RBXGit" then
+			-- Handle COMPATIBLE.RBXGit found
+			print("[PACKAGE] Repo is compatible with RBXGIT.")
+			Compatible = true
+			
+		end
+	end
+	
+	if not Compatible then
+		return warn("[PACKAGE] Repo is not compatible with RBXGIT. Cancelled download.")
+	end
+
 
 	-- Iterate through repo contents
 	for _, item in ipairs(result) do
