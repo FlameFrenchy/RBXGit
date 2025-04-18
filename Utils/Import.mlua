@@ -20,7 +20,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 	local pa = parent
 	local i = isParent
 	local c = wasConfirmed
-	path = p or "/"
+	path = p or ""
 	parent = pa or game:GetService("ReplicatedStorage"):FindFirstChild("@"..user.."."..repo) or Instance.new("Folder")
 	isParent = i or true
 	
