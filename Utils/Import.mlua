@@ -48,7 +48,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
 	local Compatible = false
 	
 	for _, item in ipairs(result) do
-		if item.type == "file" and item.name == "COMPATIBLE.RBXGit" then
+		if item.type == "file" and item.name == "Compatible.RBXGit" then
 			-- Handle COMPATIBLE.RBXGit found
 			print("[PACKAGE] Repo is compatible with RBXGIT.")
 			Compatible = true
