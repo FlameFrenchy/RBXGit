@@ -3,22 +3,39 @@ local Git = {}
 
 -- Helper to detect script type from filename
 local function getScriptType(filename)
-	if filename:match("%.module%.lua$") then
+	if filename:match("%.mlua$") then -- CUSTOM MADE FOR "MODULE LUA" for Module Scripts
 		return "ModuleScript"
-	elseif filename:match("%.lua$") then
+	elseif filename:match("%.lua$") then 
 		return "Script"
+	elseif filename:match("%.llua$") then -- CUSTOM MADE FOR "LOCAL LUA" for Local Scripts
+		return "LocalScript"
 	else
 		return nil
 	end
 end
 
 -- Recursive fetcher
-function Git.GET_REPO(user, repo, path, parent)
-	path = path or ""
-	parent = parent or game:GetService("ReplicatedStorage"):FindFirstChild("@"..user.."."..repo) or Instance.new("Folder")
-	parent.Name = "@"..user.."."..repo
-	parent.Parent = game:GetService("ReplicatedStorage")
+function Git.GET_REPO(user, repo, path, parent, isParent :boolean)
+	local p = path
+	local pa = parent
+	local i = isParent
+	path = p or "/"
+	parent = pa or game:GetService("ReplicatedStorage"):FindFirstChild("@"..user.."."..repo) or Instance.new("Folder")
+	isParent = i or true
 
+	-- Create the root folder only if isParent is true (this means we are at the top level of the repo)
+	if isParent and not parent.Parent then
+		parent.Name = "@"..user.."."..repo
+		parent.Parent = game:GetService("ReplicatedStorage")
+	end
+
+	-- Set subfolder names
+	if not isParent then
+		local folderName = string.match(path, "[^/]+$") or path
+		parent.Name = folderName
+	end
+
+	-- Fetch repo contents
 	local apiUrl = "https://api.github.com/repos/"..user.."/"..repo.."/contents/"..path
 	local success, result = pcall(function()
 		return HTTP:JSONDecode(HTTP:GetAsync(apiUrl))
@@ -28,18 +45,23 @@ function Git.GET_REPO(user, repo, path, parent)
 		error("[PACKAGE] Failed to get repo content at "..apiUrl)
 	end
 
+	-- Iterate through repo contents
 	for _, item in ipairs(result) do
 		if item.type == "file" then
 			local scriptType = getScriptType(item.name)
 			if scriptType then
+				-- Fetch file content
 				local fileContentSuccess, code = pcall(function()
 					return HTTP:GetAsync(item.download_url)
 				end)
+
 				if fileContentSuccess then
-					local script = Instance.new(scriptType)
-					script.Name = item.name:gsub("%.module%.lua$",""):gsub("%.lua$","")
-					script.Source = code
-					script.Parent = parent
+					-- Create and store script content as StringValue
+					local scripta = Instance.new("StringValue")
+					scripta.Name = item.name:gsub("%.module%.lua$",""):gsub("%.lua$","").. " (".. scriptType.. ")"
+					scripta.Value = code
+					scripta.Parent = parent
+					
 				else
 					warn("[PACKAGE] Failed to get file:", item.download_url)
 				end
@@ -47,10 +69,13 @@ function Git.GET_REPO(user, repo, path, parent)
 				warn("[PACKAGE] Skipped non-script file:", item.name)
 			end
 		elseif item.type == "dir" then
+			-- Create subfolder for directories
 			local newFolder = Instance.new("Folder")
 			newFolder.Name = item.name
 			newFolder.Parent = parent
-			Git.GET_REPO(user, repo, item.path, newFolder)
+
+			-- Recurse into the subdirectory
+			Git.GET_REPO(user, repo, item.path, newFolder, false)
 		end
 	end
 end
