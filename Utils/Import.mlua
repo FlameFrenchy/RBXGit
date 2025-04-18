@@ -23,14 +23,15 @@ local function getLatestReleaseVersion(user, repo)
 	end)
 
 	if not success then
-		error("[PACKAGE] Failed to get the latest release for repo "..user.."/"..repo)
+		warn("[PACKAGE] Failed to get the latest release for repo "..user.."/"..repo)
 	end
 
 	if result and result.name then
 		-- Return the name field (which can contain the version number)
 		return result.name
 	else
-		error("[PACKAGE] No releases found for repo "..user.."/"..repo)
+		warn("[PACKAGE] No releases found for repo "..user.."/"..repo)
+		return "v?"
 	end
 end
 
