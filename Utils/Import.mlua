@@ -47,8 +47,11 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 	
 	wasConfirmed = c or false
 	-- Create the root folder only if isParent is true (this means we are at the top level of the repo)
+	
 	if isParent and not parent.Parent then
-		parent.Name = "@"..user.."."..repo.. " ("..getLatestReleaseVersion(user, repo)..")"
+		local title = "@"..user.."."..repo
+		print("Starting import for:", title)
+		parent.Name = title.. " ("..getLatestReleaseVersion(user, repo)..")"
 		parent.Parent = game:GetService("ReplicatedStorage")
 	end
 	
