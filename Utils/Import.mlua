@@ -139,7 +139,7 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 		end
 	end
 	if isParent then
-		print("[✔ PACKAGE] Import Succesfull")
+		print("[PACKAGE] [🟢OK] Import Succesfull")
 	end
 end
 
