@@ -1,4 +1,6 @@
 local HTTP = game:GetService("HttpService")
+local GITHUB_TOKEN = nil -- Set this to use the script.
+
 local Git = {}
 
 -- Helper to detect script type from filename
@@ -35,6 +37,31 @@ local function getLatestReleaseVersion(user, repo)
 	end
 end
 
+local function getWithAuth(url)
+	local headers = {}
+
+	if GITHUB_TOKEN then
+		headers["Authorization"] = "token " .. GITHUB_TOKEN
+	end
+
+	local response = HTTP:RequestAsync({
+		Url = url,
+		Method = "GET",
+		Headers = headers,
+	})
+
+	if response.Success then
+		return response.Body
+	else
+		error("[PACKAGE] HTTP Error: " .. response.StatusCode .. " - " .. response.StatusMessage)
+	end
+end
+
+
+function Git.ConnectGithub(token)
+	GITHUB_TOKEN = token
+end
+
 -- Recursive fetcher
 function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:boolean)
 	local p = path
@@ -64,13 +91,25 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 
 	-- Fetch repo contents
 	local apiUrl = "https://api.github.com/repos/"..user.."/"..repo.."/contents/"..path
-	local success, result = pcall(function()
-		return HTTP:JSONDecode(HTTP:GetAsync(apiUrl))
+	
+	local success, rawResponse = pcall(function()
+		return getWithAuth(apiUrl)
 	end)
 
 	if not success then
-		error("[PACKAGE] Failed to get repo content at "..apiUrl)
+		error("[PACKAGE] Failed to fetch from GitHub: "..tostring(rawResponse))
 	end
+
+	local decodeSuccess, result = pcall(function()
+		return HTTP:JSONDecode(rawResponse)
+	end)
+
+	if not decodeSuccess then
+		warn("[PACKAGE] Failed to decode JSON response:")
+		warn("Raw Response: ", rawResponse)
+		error("[PACKAGE] Invalid JSON returned from GitHub API at "..apiUrl)
+	end
+	
 	--print("Confirmed: ", wasConfirmed)
 	local Compatible = wasConfirmed
 	
@@ -93,11 +132,12 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 	-- Iterate through repo contents
 	for _, item in ipairs(result) do
 		if item.type == "file" then
+			local iname :string = item.name
 			local scriptType = getScriptType(item.name)
 			if scriptType then
 				-- Fetch file content
 				local fileContentSuccess, code = pcall(function()
-					return HTTP:GetAsync(item.download_url)
+					return getWithAuth(item.download_url)
 				end)
 
 				if fileContentSuccess then
@@ -110,13 +150,78 @@ function Git.GET_REPO(user, repo, path, parent, isParent :boolean, wasConfirmed:
 				else
 					warn("[PACKAGE] Failed to get file:", item.download_url)
 				end
+				
+			elseif iname:match("%.part$") then
+				local rawJsonSuccess, rawJson = pcall(function()
+					return getWithAuth(item.download_url)
+				end)
+
+				if rawJsonSuccess then
+					local dataSuccess, data = pcall(function()
+						return HTTP:JSONDecode(rawJson)
+					end)
+
+					if dataSuccess and typeof(data) == "table" then
+						local part = Instance.new("Part")
+
+						-- Size (expects array like [x, y, z])
+						if data.Size then
+							local ok, size = pcall(function()
+								return Vector3.new(unpack(data.Size))
+							end)
+							if ok then part.Size = size end
+						end
+
+						-- Color (expects array like [r, g, b])
+						if data.Color then
+							local ok, color = pcall(function()
+								return Color3.fromRGB(unpack(data.Color))
+							end)
+							if ok then part.Color = color end
+						end
+
+						-- Direct assignments with checks
+						for prop, default in pairs({
+							Transparency = 0,
+							Reflectance = 0,
+							CastShadow = true,
+							Locked = false,
+							Archivable = true,
+							CanCollide = true,
+							Anchored = false,
+							CanTouch = true,
+							}) do
+							if typeof(data[prop]) == typeof(default) then
+								part[prop] = data[prop]
+							end
+						end
+
+						-- Enum-based fields
+						if typeof(data.Material) == "string" and Enum.Material[data.Material] then
+							part.Material = Enum.Material[data.Material]
+						end
+
+						if typeof(data.Shape) == "string" and Enum.PartType[data.Shape] then
+							part.Shape = Enum.PartType[data.Shape]
+						end
+
+						part.Name = item.name:gsub("%.part$", "")
+						part.Parent = parent
+					else
+						warn("[PACKAGE] Failed to decode JSON .part data: ", item.name)
+						warn("Decode: ", data)
+					end
+				else
+					warn("[PACKAGE] Failed to get .part file content:", item.download_url)
+				end
+			
 			else
 				if item.name == "Compatible.RBXGit" then
 					continue
 				end
 				
 				local fileContentSuccess, data = pcall(function()
-					return HTTP:GetAsync(item.download_url)
+					return getWithAuth(item.download_url)
 				end)
 				
 				if fileContentSuccess then
